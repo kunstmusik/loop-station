@@ -9,7 +9,7 @@ nchnls_i=2
 gktempo init 60
 ga_loop_phasor init 0
 
-gi_max_loop_rec_time init 5 * 60  ;; 5 MINUTES LOOP TIME PER LOOP
+gi_max_loop_rec_time init 3 * 60  ;; 3 MINUTES LOOP TIME PER LOOP (could be larger if not in browser...)
 gi_loop_table_size init gi_max_loop_rec_time * sr
 
 ; gi_loop_table_size_power_of_two = pow(2, ceil(log(gi_loop_table_size)/log(2)));
@@ -31,6 +31,8 @@ gi_loop_table_info[] init (gi_max_loops * 2)
 instr LoopStationInitialize
     indx = 0
     while (indx < gi_max_loops) do
+        SchanGain = sprintf("Loop.%d.gain", indx)
+        chnset(0, SchanGain)
 
         ;; init memory for stereo audio buffers
         indx1 = indx * 2
@@ -39,7 +41,7 @@ instr LoopStationInitialize
         gi_loop_table_numbers[indx1] = ftgen(0, 0, -gi_loop_table_size, 2, 0)
         gi_loop_table_numbers[indx2] = ftgen(0, 0, -gi_loop_table_size, 2, 0)
 
-        ;; initialize loob buffer information
+        ;; initialize loop buffer information
         ;; period of 4 bars
         gi_loop_table_info[indx * 2] = (60 / i(gktempo))  * 4 * sr * 4 
         gi_loop_table_info[indx * 2 + 1] = 4 
@@ -57,6 +59,17 @@ opcode loop_buffer_info, ii, i
     xout inumSamples, inumBars
 endop
 
+opcode loop_buffer_clear, 0, i
+    ibufnum xin
+
+    itab1 = gi_loop_table_numbers[ibufnum * 2]
+    itab2 = gi_loop_table_numbers[ibufnum * 2 + 1]
+
+    i0 = ftgen(itab1, 0, -gi_loop_table_size, 2, 0)
+    i0 = ftgen(itab2, 0, -gi_loop_table_size, 2, 0)
+
+endop
+
 opcode play_loop_buffers, aa, ia 
     ibufnum, aphs xin
 
@@ -64,6 +77,10 @@ opcode play_loop_buffers, aa, ia
     itab2 = gi_loop_table_numbers[ibufnum * 2 + 1]
 
     inumSamples, inumBars = loop_buffer_info(ibufnum)
+
+    SchanGain = sprintf("Loop.%d.gain", ibufnum)
+    kgain = ampdbfs(chnget:k(SchanGain))
+
     ; a1 = flooper2:a(1, 1, 0, inumSamples, 0, itab1)
     ; a2 = flooper2:a(1, 1, 0, inumSamples, 0, itab2)
 
@@ -73,14 +90,20 @@ opcode play_loop_buffers, aa, ia
     ; a2 mincer aphs, 1, 1, itab2, 1
 
     aphs = ga_loop_phasor * inumSamples
-    a1 = table:a(aphs, itab1)
-    a2 = table:a(aphs, itab2)
+    a1 = table:a(aphs, itab1) * kgain
+    a2 = table:a(aphs, itab2) * kgain
 
-    if((ibufnum + 1) < gi_max_loops) then
+    ; if(ibufnum + 1 == gi_max_loops) then
+    ;    anext1, anext2 play_loop_buffers ibufnum + 1, aphs
+    ;    a1 += anext1
+    ;    a2 += anext2
+    ; endif
+    ;; using this until webaudio csound can be updated to latest cs6 code
+    if(ibufnum + 1 == gi_max_loops) goto skip 
        anext1, anext2 play_loop_buffers ibufnum + 1, aphs
        a1 += anext1
        a2 += anext2
-    endif
+    skip:
     xout a1, a2
 endop
 
@@ -112,7 +135,11 @@ instr LoopBufferRecord
     aenv = linsegr:a(0, 64/sr, 1, p3, 1, 64/sr, 0)
     asig = inch:a(1) * aenv
 
-    out(asig, asig)
+    SchanGain = sprintf("Loop.%d.gain", ibufnum)
+    kgain = ampdbfs(chnget:k(SchanGain))
+    amonitorSig = asig * kgain
+
+    out(amonitorSig, amonitorSig)
 
     a1 = table:a(aphs, itab1)
     a2 = table:a(aphs, itab2)

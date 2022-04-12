@@ -1,45 +1,52 @@
-import { useState } from 'react'
-import logo from './logo.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import { Csound, CsoundObj } from "@csound/browser";
+import logo from "./logo.svg";
+import "./App.css";
+import loopStationOrc from "./csound/loopstation.orc?raw";
+import LoopControls from "./LoopControls";
+import { Box, Button, Center, Heading, Text, VStack } from "@chakra-ui/react";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [csound, setCsound] = useState<CsoundObj>();
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    if (!csound) {
+      Csound().then((cs) => {
+        setCsound(cs);
+      });
+    }
+  }, [csound]);
+
+  const startCsound = async () => {
+    if (!csound) return;
+
+    await csound.setOption("-+msg_color=false");
+    await csound.setOption("-iadc");
+
+    await csound.compileOrc(loopStationOrc);
+
+    await (csound as any).enableAudioInput();
+    await csound.start();
+    csound.getAudioContext().then((ctx) => ctx?.resume());
+    setStarted(true);
+  };
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>Hello Vite + React!</p>
-        <p>
-          <button type="button" onClick={() => setCount((count) => count + 1)}>
-            count is: {count}
-          </button>
-        </p>
-        <p>
-          Edit <code>App.tsx</code> and save to test HMR updates.
-        </p>
-        <p>
-          <a
-            className="App-link"
-            href="https://reactjs.org"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Learn React
-          </a>
-          {' | '}
-          <a
-            className="App-link"
-            href="https://vitejs.dev/guide/features.html"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Vite Docs
-          </a>
-        </p>
-      </header>
-    </div>
-  )
+    <VStack textAlign="center" width="100vw" h="100vh">
+      <Text fontSize="3xl" fontWeight="bold" marginTop={2}>LOOP STATION</Text>
+      {csound ? (
+        started ? (
+          <LoopControls csound={csound}></LoopControls>
+        ) : (
+          // <Center style={{height: "100vh"}}>
+            <Button onClick={startCsound} margin={5}>Start Looper</Button>
+          // </Center>
+        )
+      ) : (
+        <div>Loading...</div>
+      )}
+    </VStack>
+  );
 }
 
-export default App
+export default App;

@@ -8,7 +8,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@chakra-ui/react": "^1.8.8",
     "@csound/browser": "^6.17.0-beta2",
+    "@emotion/react": "^11",
+    "@emotion/styled": "^11",
+    "@fontsource/jost": "^4.5.6",
+    "framer-motion": "^6",
     "react": "^17.0.2",
     "react-dom": "^17.0.2"
   },
