@@ -5,6 +5,9 @@ const theme = extendTheme({
     heading: "Jost, sans-serif",
     body: "Jost, sans-serif",
   },
+  initialColorMode: 'dark',
+  useSystemColorMode: false,
+
 });
 
 export default theme;
